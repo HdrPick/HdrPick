@@ -29,7 +29,7 @@
 
 ## 1. 产品概述
 
-jietu-hdr 是一款面向 Windows HDR 生态的桌面工具，采用 Tauri 2 + Rust + Vue3（Naive-UI）构建，核心能力：
+HdrPick 是一款面向 Windows HDR 生态的桌面工具，采用 Tauri 2 + Rust + Vue3（Naive-UI）构建，核心能力：
 
 | 能力域 | 说明 |
 |---|---|
