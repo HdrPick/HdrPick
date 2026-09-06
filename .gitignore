@@ -1,0 +1,17 @@
+# HdrPick 源码仓库
+# 忽略：构建产物 / 依赖 / 模型 / 日志 / 临时目录
+node_modules/
+target/
+dist/
+gen/
+models/
+*.log
+.old-build/
+.tmp-misc/
+.trash/
+.vscode/
+.git/
+*.pdb
+*.exe
+*.dll
+*.zip

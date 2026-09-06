@@ -1,0 +1,156 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "jietu-hdr: Windows HDR screenshot tool"
+authors = ["jietu-hdr"]
+edition = "2021"
+
+[features]
+# JPEG XL 编解码（vendor jxl-sys：截图 HDR 输出 + 看图解码）
+default = ["jxl"]
+jxl = []
+# 内嵌前端资源（正式版必须）：直接 cargo build --release 不会启用，
+# 需 --features custom-protocol，否则 exe 走 devUrl 报 "localhost 拒绝连接"
+custom-protocol = ["tauri/custom-protocol"]
+# AVIF 编码（默认关闭，启用时需另行在 [dependencies] 添加 ravif）
+avif = []
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# 二进制名固定为 hdr（与既有 exe 路径/用户习惯一致；不声明则默认取 package name "app"）
+[[bin]]
+name = "hdr"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+
+# 视频模块（videorec：MP4/MKV 录制 + 播放器；独立 crate 零侵入接入）
+# windows crate 同为 0.58，feature 并集后单份编译
+# dovi: 开启杜比视界 RPU 解析（libdovi），让播放器逐帧提取 RPU 元数据，
+#       为后续把 RPU/EL 桥接进 MPCVR FEL 渲染器做准备
+videorec = { path = "../../videorec", features = ["dovi"] }
+
+# Windows API (DXGI 捕获)
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Accessibility",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Printing",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Rpc",
+    "Win32_Security",
+    "Win32_System_SystemInformation",
+    "Win32_System_WindowsProgramming",
+    "Win32_System_Threading",
+    "Win32_System_Memory",
+    "Win32_System_Wmi",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+    "Win32_Media",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_SystemInformation",
+    "Win32_Devices_Display",
+    "Win32_Storage_FileSystem",
+    "Foundation",
+    "Foundation_Collections",
+    "Foundation_Numerics",
+    "Data_Pdf",
+    "Globalization",
+    "Media_Ocr",
+    "Storage",
+    "Storage_Streams",
+    "Graphics",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "Graphics_Display",
+    "Graphics_Imaging",
+    "UI",
+    "UI_ViewManagement",
+] }
+
+# 图像编码/解码（看图功能：多格式解码 + 缩略图 + 转格式）
+image = { version = "0.25", default-features = false, features = [
+  "png", "jpeg", "webp", "gif", "bmp", "tiff", "ico",
+] }
+png = "0.17"
+exr = "1.72"
+
+# Real-ESRGAN .pth 权重解析（PyTorch zip checkpoint；只读 deflate，无需加密等特性）
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# JPEG XL 编解码（vendor 路径依赖，cmake 构建 libjxl）
+jxl-sys = { path = "../../vendor/jxl-sys" }
+num_cpus = "1"
+# 录屏环形缓冲水位自适应压缩（record/ 模块；level-1 仅高水位触发）
+zstd = "0.13"
+
+# 看图：PSD 解码 + EXIF 解析
+psd = "0.3"
+kamadak-exif = "0.5"
+
+# 序列化 / 配置
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# 日志 / 错误
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1"
+thiserror = "1"
+
+# 工具
+dirs = "5"
+chrono = "0.4"
+base64 = "0.22"
+
+# 相册库 / 批量重命名 / 加密隐私相册（viewer/library.rs、batch.rs、vault.rs）
+# - tokio: scan_library / batch_rename / vault 重活 spawn_blocking 用（与 tauri 自带 tokio 同 1.x 统一）
+tokio = { version = "1", features = ["rt"] }
+# - AES-256-GCM（默认特性含 getrandom → OsRng 随机源）
+aes-gcm = "0.10"
+# - PBKDF2-HMAC-SHA256 口令派生（12 万迭代）
+pbkdf2 = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+
+# 文件关联 + 资源管理器右键（assoc.rs，HKCU 注册表免管理员）
+winreg = "0.52"
+# 单实例改为自研（singleinstance.rs：mutex+事件+队列文件；官方插件窗口方案本机失效静默双开）
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.dev]
+opt-level = 1

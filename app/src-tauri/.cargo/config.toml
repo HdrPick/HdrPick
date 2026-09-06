@@ -1,0 +1,4 @@
+# 静态链接 VC++ 运行库（CRT），消除对 VCRUNTIME140.dll 的依赖
+# 解决干净 Win10 系统上"找不到 VCRUNTIME140.dll"的报错（Win11 预装运行库所以正常）
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
